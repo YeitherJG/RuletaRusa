@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruleta de Nombres</title>
+    <style>
+        /* Estilos CSS */
+        :root {
+            /* Colores predefinidos para los segmentos (alternando) */
+            --color1: #E74C3C; /* Rojo */
+            --color2: #2ECC71; /* Verde */
+            --separator-color: #111; /* color de franja entre segmentos */
+            --hole-color: #ffffff; /* color del centro (match container) */
+            --ruleta-size: 400px;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            /* Fondo: Verde a Rojo difuminado */
+            background: linear-gradient(135deg, #1abc9c, #e74c3c);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .input-area {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            resize: vertical;
+            min-height: 100px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        #generar-btn {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+
+        #generar-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        /* --- Ruleta Styling --- */
+        .ruleta-container {
+            position: relative;
+            width: var(--ruleta-size);
+            height: var(--ruleta-size);
+            margin: 30px auto;
+        }
+
+        .ruleta-exterior {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 10px solid #2c3e50;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .ruleta-interior {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: transform 6s cubic-bezier(0.25, 0.1, 0.25, 1); /* Transición suave */
+            position: absolute;
+            top: 0;
+            left: 0;
+            overflow: visible;
+        }
+
+        /* Agujero central para convertir la ruleta en un "donut" y que las franjas no lleguen al centro */
+        .ruleta-hole {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--hole-color);
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Antes se usaban elementos individuales tipo "cuña" (.segmento).
+           Reemplazamos esa aproximación por un `conic-gradient` en
+           `.ruleta-interior` y etiquetas posicionadas alrededor del radio.
+        */
+
+        /* Etiquetas de segmento (texto) colocadas radialmente */
+        .segmento-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 50%;
+            padding-left: 6px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 3;
+        }
+        
+        /* Indicador / Flecha */
+        .indicador {
+            position: absolute;
+            top: -10px; /* Colocar fuera de la parte superior del contenedor */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid red;
+            z-index: 10;
+        }
+
+        #girar-btn {
+            padding: 15px 30px;
+            font-size: 1.3em;
+            cursor: pointer;
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 0 #d35400;
+            transition: all 0.1s;
+        }
+
+        #girar-btn:active {
+            box-shadow: 0 2px 0 #d35400;
+            transform: translateY(2px);
+        }
+
+        #resultado {
+            margin-top: 30px;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #c0392b;
+            min-height: 40px; /* Para evitar saltos de diseño */
+        }
+
+        /* Ruleta deshabilitada visualmente */
+        .ruleta-deshabilitada {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Ruleta de Nombres 🎯</h1>
+
+        <div class="input-area">
+            <label for="nombres-textarea">Introduce los nombres (uno por línea):</label>
+            <textarea id="nombres-textarea" placeholder="Ejemplo:&#10;Juan&#10;María&#10;Pedro&#10;Sofía"></textarea>
+            <button id="generar-btn">Generar Ruleta</button>
+        </div>
+
+        <p id="mensaje-ruleta">Introduce los nombres arriba y haz clic en "Generar Ruleta".</p>
+
+        <div class="ruleta-container">
+            <div class="indicador"></div>
+            <div class="ruleta-exterior">
+                <div class="ruleta-interior" id="ruleta">
+                    </div>
+            </div>
+        </div>
+
+        <button id="girar-btn" disabled>Girar Ruleta</button>
+
+        <p id="resultado">¡Ruleta lista!</p>
+    </div>
+
+    <script>
+        // Lógica de JavaScript
+        const nombresTextarea = document.getElementById('nombres-textarea');
+        const generarBtn = document.getElementById('generar-btn');
+        const girarBtn = document.getElementById('girar-btn');
+        const ruletaElement = document.getElementById('ruleta');
+        const resultadoElement = document.getElementById('resultado');
+        const mensajeRuleta = document.getElementById('mensaje-ruleta');
+
+        let nombres = [];
+        let estaGirando = false;
+
+        // Generador de color por segmento: distribuye tonos HSL para buena distinción
+        function generarColorSegment(index, total) {
+            if (total <= 2) return index % 2 === 0 ? 'var(--color1)' : 'var(--color2)';
+            const hue = Math.round((index * 360) / total);
+            const saturation = 65; // %
+            const lightness = 50; // %
+            return `hsl(${hue} ${saturation}% ${lightness}%)`;
+        }
+
+        // --- 1. Generar la Ruleta ---
+        function generarRuleta() {
+            const nombresInput = nombresTextarea.value.split('\n')
+                .map(n => n.trim())
+                .filter(n => n.length > 0);
+
+            if (nombresInput.length < 2) {
+                alert("Por favor, introduce al menos dos nombres.");
+                girarBtn.disabled = true;
+                ruletaElement.innerHTML = '';
+                ruletaElement.style.background = 'none'; // Limpia el fondo CSS por si acaso
+                mensajeRuleta.textContent = "¡Necesitas al menos 2 nombres!";
+                return;
+            }
+
+            nombres = nombresInput;
+            const numSegmentos = nombres.length;
+            const anguloSegmento = 360 / numSegmentos;
+
+            ruletaElement.innerHTML = ''; // Limpiar segmentos anteriores
+            let currentRotation = 0;
+
+            // Construir un conic-gradient con separadores negros entre segmentos
+            const gradientParts = [];
+            let current = 0;
+
+            // Obtener tamaño de la ruleta desde la variable CSS (fallback 400)
+            const sizeCss = getComputedStyle(document.documentElement).getPropertyValue('--ruleta-size') || '400px';
+            const size = parseInt(sizeCss, 10) || 400;
+            const radius = size / 2;
+
+            // Separador en grados: proporcional al ángulo del segmento, con límites
+            const separatorDeg = Math.min(anguloSegmento * 0.08, 2); // hasta 2deg o 8% del segmento
+
+            // Guardar separador para usar en la función de giro
+            ruletaElement.dataset.separator = separatorDeg;
+
+            nombres.forEach((nombre, index) => {
+                const color = generarColorSegment(index, nombres.length);
+
+                // El color ocupa (anguloSegmento - separatorDeg) y luego va la franja negra
+                const colorStart = current;
+                const colorEnd = colorStart + (anguloSegmento - separatorDeg);
+
+                gradientParts.push(`${color} ${colorStart}deg ${colorEnd}deg`);
+
+                const sepStart = colorEnd;
+                const sepEnd = sepStart + separatorDeg;
+                gradientParts.push(`#000 ${sepStart}deg ${sepEnd}deg`);
+
+                // Crear etiqueta radial (texto) y posicionarla hacia el borde
+                const label = document.createElement('div');
+                label.className = 'segmento-label';
+                label.textContent = nombre.toUpperCase();
+
+                // Centrar la etiqueta en el segmento de color (no en el separador)
+                const angle = colorStart + (colorEnd - colorStart) / 2;
+                label.dataset.angle = angle; // guardamos el ángulo para reuso
+                label.style.fontSize = '14px';
+
+                // Posición inicial (se ajustará con adjustLabels)
+                const distance = Math.round(radius * 0.65);
+                label.style.transform = `rotate(${angle}deg) translate(${distance}px) rotate(-${angle}deg)`;
+
+                ruletaElement.appendChild(label);
+
+                // Avanzar el cursor (color + separador) — al final llegará a 360
+                current = sepEnd;
+            });
+
+            // Aplicar el fondo en forma de sectores circulares
+            ruletaElement.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+            ruletaElement.style.borderRadius = '50%';
+            ruletaElement.style.position = 'relative';
+            ruletaElement.style.overflow = 'visible';
+
+            girarBtn.disabled = false;
+            resultadoElement.textContent = `Ruleta lista con ${numSegmentos} participantes.`;
+            mensajeRuleta.textContent = "¡Ruleta generada! Gira para ver quién gana. ⬇️";
+
+            // Resetear la rotación visual al generar
+            ruletaElement.style.transform = 'rotate(0deg)';
+        }
+
+        // --- 2. Girar la Ruleta ---
+        function girarRuleta() {
+            if (estaGirando || nombres.length === 0) return;
+            estaGirando = true;
+            girarBtn.disabled = true;
+            resultadoElement.textContent = "¡Girando...";
+
+            const numSegmentos = nombres.length;
+            const anguloSegmento = 360 / numSegmentos;
+
+            // Separador usado al dibujar la ruleta (en grados)
+            const separatorDeg = parseFloat(ruletaElement.dataset.separator) || 0;
+
+            // 1. Calcular el ángulo de parada aleatorio
+            const indiceAleatorio = Math.floor(Math.random() * numSegmentos);
+
+            // Calcular el centro visual del segmento (se resta la franja negra)
+            const centerAngle = indiceAleatorio * anguloSegmento + (anguloSegmento - separatorDeg) / 2;
+
+            // Ajuste para que el indicador (arriba) apunte al centro
+            const anguloParada = 270 - centerAngle;
+
+            // 2. Calcular el giro total: Mínimo 6 vueltas completas + el ángulo de parada
+            const vueltas = 6;
+            const giroTotal = (vueltas * 360) + anguloParada;
+
+            // 3. Aplicar la rotación
+            ruletaElement.style.transform = `rotate(${giroTotal}deg)`;
+
+            // 4. Determinar el resultado cuando termine la animación (6s, coincidiendo con CSS)
+            setTimeout(() => {
+                const nombreGanador = nombres[indiceAleatorio];
+                resultadoElement.textContent = `🎉 ¡El ganador es: ${nombreGanador.toUpperCase()}! 🎉`;
+                
+                // --- Resetear el estado para el siguiente giro ---
+                estaGirando = false;
+                girarBtn.disabled = false;
+                
+                // Normalizar la rotación final para el siguiente giro
+                const anguloFinalNormalizado = giroTotal % 360;
+                ruletaElement.style.transition = 'none';
+                ruletaElement.style.transform = `rotate(${anguloFinalNormalizado}deg)`;
+                
+                // Forzar un "repaint" y volver a aplicar la transición
+                setTimeout(() => {
+                     ruletaElement.style.transition = 'transform 6s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                }, 50);
+
+            }, 6000); // 6000ms debe coincidir con la duración de la transición CSS
+        }
+
+        // Event Listeners
+        generarBtn.addEventListener('click', generarRuleta);
+        girarBtn.addEventListener('click', girarRuleta);
+
+        // Inicializar con un ejemplo (opcional)
+        document.addEventListener('DOMContentLoaded', () => {
+            nombresTextarea.value = "Ana\nRoberto\nLuisa\nMiguel\nPilar";
+            generarRuleta();
+        });
+
+    </script>
